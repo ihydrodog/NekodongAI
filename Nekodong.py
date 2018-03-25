@@ -1,9 +1,12 @@
 import gym
+from gym.spaces.discrete import Discrete
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import random
 import math
+import itertools
+
 
 
 
@@ -11,11 +14,12 @@ class CardPlay( gym.Env ):
 
     class Player():
         def __init__(self, cardCount ):
+            self._cardCount = cardCount
             self.reset()
 
 
         def randomChoice(self):
-            return self.pop( self._deck[ random.randrange(len(self._deck))] )
+            return self.pop( random.choice( self._deck )  )
 
 
         def contains(self, x):
@@ -23,13 +27,14 @@ class CardPlay( gym.Env ):
 
 
         def reset(self):
-            self._deck = [i+1 for i in range(self.cardCount)]
+            self._deck = [i for i in range( self._cardCount )]
             self._dumped = []
 
 
         def pop(self, x ):
-            self._deck.pop(x)
+            self._deck.remove(x)
             self._dumped.append( x )
+            return x
 
 
         def empty(self):
@@ -42,19 +47,11 @@ class CardPlay( gym.Env ):
 
 
 
-
-    class Action( gym.Space ):
+    class Action( Discrete ):
         def __init__(self, cardCount ):
+            super( CardPlay.Action, self ).__init__( cardCount )
             self._cardCount = cardCount
             self._player = CardPlay.Player( cardCount )
-
-
-        def sample(self):
-            return self._player.randomChoice()
-
-
-        def contains(self, x):
-            return self._player.contains( x )
 
 
         def reset(self):
@@ -66,40 +63,60 @@ class CardPlay( gym.Env ):
 
 
         def isDone(self):
-            return self.empty()
+            return self._player.empty()
 
 
         def getDumped(self):
             return self._player.dumped
 
 
+        def select(self, rewards):
+            r = [ (rewards[i], i) for i in range( self._cardCount ) ]
+            r.sort()
 
-    class Observation( gym.Space ):
-        def __init__(self, cardCount ):
-            self._cardCount = cardCount
-            self._max = math.pow( math.factorial( self._cardCount ), 2)
+            for (_, i) in reversed( r ):
+                if self._player.contains( i ):
+                    return i
 
 
-        def sample(self):
-            return random.randrange( self._max )
 
-        def contains(self, x):
-            return 0 <= x < self._max
 
+
+
+    class Observation( Discrete ):
+        def __init__(self, stateCount ):
+            self._stateCount = stateCount
+            super( CardPlay.Observation, self ).__init__( stateCount )
 
 
     def __init__(self):
+        super( CardPlay, self).__init__()
         self.cardCount = 5
+
+        self._stateMap = {}
+        # init self._stateMap
+        index = 0
+        self._stateMap[ None ] = index
+
+        index+=1
+        for i in range(1, self.cardCount+1):
+            p = itertools.permutations( range( self.cardCount ), i )
+            q = itertools.permutations( range( self.cardCount ), i )
+            for a, b in itertools.product( p, q ):
+                self._stateMap[ (tuple(a), tuple(b)) ] = index
+                # print( a, b )
+                index+=1
+
+
         self.action_space = CardPlay.Action( self.cardCount )
-        self.observation_space = CardPlay.Observation()
+        self.observation_space = CardPlay.Observation( index )
 
         self._opponent = CardPlay.Player( self.cardCount )
         self._reset()
 
 
     def _getState(self, a, b):
-        for _a, _b in zip( a, b):
-
+        return self._stateMap[ (tuple(a), tuple(b)) ]
 
 
     def _step(self, action):
@@ -129,7 +146,8 @@ class CardPlay( gym.Env ):
         state = self._getState( mine, opp )
         return state, reward, done, None
 
-
+    def render(self, mode='human', close=False):
+        pass
 
 
     def _reset(self):
@@ -137,14 +155,20 @@ class CardPlay( gym.Env ):
         self._state = 0
         self._opponent.reset()
 
+        return self._state
+
+
 
 def one_hot( s, max_samples = 16):
-    return np.identity( max_samples)[s:s+1]
+    # return np.identity( max_samples)[s:s+1]
+    return [[ 1 if i == s else 0 for i in range(max_samples) ]]
 
 
 def testRun():
 
-    env = gym.make( "FrozenLake-v0")
+    env = CardPlay()
+
+    # env = gym.make( "FrozenLake-v0")
     input_size = env.observation_space.n
     output_size = env.action_space.n
 
@@ -173,20 +197,21 @@ def testRun():
             local_loss = []
 
             while not done:
-                Qs = sess.run( Qpred, feed_dict={X:one_hot(s)} )
+                Qs = sess.run( Qpred, feed_dict={X:one_hot(s, input_size)} )
                 if np.random.rand(1) >= e:
-                    a = np.argmax( Qs )
+                    a = env.action_space.select( Qs[0] )
                 else:
                     a = env.action_space.sample()
 
                 s1, reward, done, _ = env.step( a )
+                print( a, reward, done )
                 if done:
                     Qs[0, a] = reward
                 else:
-                    Qs1 = sess.run( Qpred, feed_dict={ X:one_hot(s1)})
+                    Qs1 = sess.run( Qpred, feed_dict={ X:one_hot(s1, input_size)})
                     Qs[0, a] = reward + discount*np.max( Qs1 )
 
-                sess.run( train, feed_dict={X: one_hot(s), Y:Qs} )
+                sess.run( train, feed_dict={X: one_hot(s, input_size), Y:Qs} )
 
                 rAll += reward
                 s = s1
