@@ -164,7 +164,7 @@ class CardPlay( gym.Env ):
 
         @property
         def dumped(self):
-            return self._dumped
+            return self._dumped+[-1]*(self._cardCount-len(self._dumped))
 
 
 
@@ -192,15 +192,17 @@ class CardPlay( gym.Env ):
 
 
         def select(self, rewards):
-            r = [ (rewards[i], i) for i in range( self._cardCount ) ]
+            r = [ (rewards[i], i) for i in range( len( rewards ) ) ]
             r.sort()
 
             for (_, i) in reversed( r ):
                 if self._player.contains( i ):
                     return i
                 else:
-                    rewards[i] = -1
+                    # rewards[i-1] = -1
+                    pass
 
+            return i
 
         def sample(self):
             return self._player.randomChoice()
@@ -221,23 +223,23 @@ class CardPlay( gym.Env ):
         super( CardPlay, self).__init__()
         self.cardCount = 5
 
-        self._stateMap = {}
-        # init self._stateMap
-        index = 0
-        self._stateMap[ None ] = index
-
-        index+=1
-        for i in range(1, self.cardCount+1):
-            p = itertools.permutations( range( self.cardCount ), i )
-            q = itertools.permutations( range( self.cardCount ), i )
-            for a, b in itertools.product( p, q ):
-                self._stateMap[ (tuple(a), tuple(b)) ] = index
-                # print( a, b )
-                index+=1
+        # self._stateMap = {}
+        # # init self._stateMap
+        # index = 0
+        # self._stateMap[ None ] = index
+        #
+        # index+=1
+        # for i in range(1, self.cardCount+1):
+        #     p = itertools.permutations( range( self.cardCount ), i )
+        #     q = itertools.permutations( range( self.cardCount ), i )
+        #     for a, b in itertools.product( p, q ):
+        #         self._stateMap[ (tuple(a), tuple(b)) ] = index
+        #         # print( a, b )
+        #         index+=1
 
 
         self.action_space = CardPlay.Action( self.cardCount )
-        self.observation_space = CardPlay.Observation( index )
+        self.observation_space = CardPlay.Observation( self.cardCount*2 )
 
         self._opponent = CardPlay.Player( self.cardCount )
         self._reset()
@@ -249,8 +251,8 @@ class CardPlay( gym.Env ):
 
 
     def _getState(self, a, b):
-        return self._stateMap[ (tuple(a), tuple(b)) ]
-
+        # return self._stateMap[ (tuple(a), tuple(b)) ]
+        return a+b
 
     def _step(self, action):
 
@@ -288,7 +290,10 @@ class CardPlay( gym.Env ):
             state = self._getState( mine, opp )
             return state, reward, done, None
         else:
-            return 0, -1, True, None
+            mine = self.action_space.getDumped()
+            opp = self._opponent.dumped
+            state = self._getState(mine, opp)
+            return state, -1, True, None
 
     def render(self, mode='human', close=False):
         pass
@@ -296,9 +301,8 @@ class CardPlay( gym.Env ):
 
     def _reset(self):
         self.action_space.reset()
-        self._state = 0
         self._opponent.reset()
-
+        self._state = self.action_space.getDumped() + self._opponent.dumped
         return self._state
 
 
@@ -358,7 +362,7 @@ def testRun():
             while not done:
                 # Qs = sess.run( Qpred, feed_dict={X:one_hot(s, input_size)} )
                 if np.random.rand(1) >= e:
-                    a = env.action_space.select(mainDQN.predict( one_hot(s, input_size) )[0])
+                    a = env.action_space.select(mainDQN.predict( s )[0])
                     # a = env.action_space.select( Qs[0] )
                 else:
                     a = env.action_space.sample()
@@ -367,7 +371,8 @@ def testRun():
                 s1, reward, done, _ = env.step( a )
 
                 # Save the experience to our buffer
-                replay_buffer.append((one_hot(s, input_size), a, reward, one_hot(s1, input_size), done))
+                replay_buffer.append((s, a, reward, s1, done))
+
 
                 if len(replay_buffer) > BATCH_SIZE:
                     minibatch = random.sample(replay_buffer, BATCH_SIZE)
