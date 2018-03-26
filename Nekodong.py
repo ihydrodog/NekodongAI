@@ -19,10 +19,11 @@ class CardPlay( gym.Env ):
 
 
         def randomChoice(self):
-            return self.pop( random.choice( self._deck )  )
+            return random.choice( self._deck )
 
 
         def contains(self, x):
+            print( self._deck, x)
             return x in self._deck
 
 
@@ -77,9 +78,16 @@ class CardPlay( gym.Env ):
             for (_, i) in reversed( r ):
                 if self._player.contains( i ):
                     return i
+                else:
+                    rewards[i] = -1
 
 
+        def sample(self):
+            return self._player.randomChoice()
 
+
+        def contains(self, x):
+            return self._player.contains( x )
 
 
 
@@ -120,31 +128,37 @@ class CardPlay( gym.Env ):
 
 
     def _step(self, action):
-        self.action_space.step( action )
-        done = self.action_space.isDone()
 
-        opponentCard = self._opponent.randomChoice()
+        if self.action_space.contains( action ):
 
-        score = 1 if action > opponentCard else 0 if action == opponentCard else -1
+            self.action_space.step( action )
+            done = self.action_space.isDone()
 
-        mine = self.action_space.getDumped()
-        opp = self._opponent.dumped
+            opponentCard = self._opponent.randomChoice()
+            self._opponent.pop( opponentCard )
 
-        reward = 0
-        if done:
-            wins = 0
-            draws = 0
-            for me, opponent in zip( mine, opp ):
-                if me > opponent:
-                    wins += 1
-                elif me == opponent:
-                    draws += 1
-            if wins > self.cardCount//2:
-                reward = 1
+            score = 1 if action > opponentCard else 0 if action == opponentCard else -1
+
+            mine = self.action_space.getDumped()
+            opp = self._opponent.dumped
+
+            reward = 0
+            if done:
+                wins = 0
+                draws = 0
+                for me, opponent in zip( mine, opp ):
+                    if me > opponent:
+                        wins += 1
+                    elif me == opponent:
+                        draws += 1
+                if wins > self.cardCount//2:
+                    reward = 1
 
 
-        state = self._getState( mine, opp )
-        return state, reward, done, None
+            state = self._getState( mine, opp )
+            return state, reward, done, None
+        else:
+            return 0, -1, True, None
 
     def render(self, mode='human', close=False):
         pass
@@ -180,7 +194,7 @@ def testRun():
 
     train = tf.train.GradientDescentOptimizer( learning_rate=0.1).minimize( loss )
     discount = 0.99
-    num_episodes = 2000
+    num_episodes = 10000
     rList = []
 
     env.render()
@@ -203,8 +217,9 @@ def testRun():
                 else:
                     a = env.action_space.sample()
 
+                print( a, env.action_space._player._deck )
                 s1, reward, done, _ = env.step( a )
-                print( a, reward, done )
+
                 if done:
                     Qs[0, a] = reward
                 else:
