@@ -28,7 +28,7 @@ class DQN:
         self.output_size = output_size
         self.net_name = name
 
-        self._build_network()
+        self._build_network( h_size=input_size*4)
 
     def _build_network(self, h_size=16, l_rate=0.001) -> None:
         """DQN Network architecture (simple MLP)
@@ -328,7 +328,7 @@ def testRun():
     #
     # train = tf.train.GradientDescentOptimizer( learning_rate=0.1).minimize( loss )
     # discount = 0.99
-    num_episodes = 2000
+    num_episodes = 20000
     rList = []
 
     # env.render()
@@ -403,11 +403,11 @@ def testRun():
                 if avg_reward > 199:
                     print(f"Game Cleared in {episode} episodes with avg reward {avg_reward}")
                     break
-            # rList.append( rAll )
+            rList.append( rAll )
 
         # print(W.eval(sess))
 
-    # print( "P:"+str( sum(rList)/num_episodes))
+    print( "P:"+str( sum(rList)/num_episodes))
 
 
     plt.bar( range(len(rList)), rList, color="blue")
