@@ -41,6 +41,7 @@ class DQN:
             net = self._X
 
             net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+
             net = tf.layers.dense(net, self.output_size)
             self._Qpred = net
 
