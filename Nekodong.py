@@ -195,6 +195,8 @@ class CardPlay( gym.Env ):
             r = [ (rewards[i], i) for i in range( len( rewards ) ) ]
             r.sort()
 
+            # return r[ len(rewards) -1 ][1]
+
             for (_, i) in reversed( r ):
                 if self._player.contains( i ):
                     return i
@@ -264,27 +266,28 @@ class CardPlay( gym.Env ):
             opponentCard = self._opponent.randomChoice()
             self._opponent.pop( opponentCard )
 
-            if action == 0 and opponentCard == self.cardCount-1:
-                score = 1
-            elif action == self.cardCount-1 and opponentCard == 0:
-                score = -1
-            else:
-                score = 1 if action > opponentCard else 0 if action == opponentCard else -1
-
             mine = self.action_space.getDumped()
             opp = self._opponent.dumped
 
             reward = 0
             if done:
-                wins = 0
+                score = 0
                 draws = 0
                 for me, opponent in zip( mine, opp ):
-                    if me > opponent:
-                        wins += 1
-                    elif me == opponent:
-                        draws += 1
-                if wins > self.cardCount//2:
+
+                    if me == 0 and opponent == self.cardCount - 1:
+                        score += 1
+                    elif me == self.cardCount - 1 and opponent == 0:
+                        score += -1
+                    else:
+                        score += 1 if me > opponent else 0 if me == opponent else -1
+
+                if score > 0:
                     reward = 1
+                elif score == 0:
+                    reward = 0.5
+                else:
+                    reward = -1
 
 
             state = self._getState( mine, opp )
@@ -328,7 +331,7 @@ def testRun():
     #
     # train = tf.train.GradientDescentOptimizer( learning_rate=0.1).minimize( loss )
     # discount = 0.99
-    num_episodes = 20000
+    num_episodes = 2000
     rList = []
 
     # env.render()
@@ -350,14 +353,15 @@ def testRun():
                                     src_scope_name="main")
         sess.run(copy_ops)
 
+        step_count = 0
 
         for i in range( num_episodes ):
             s = env.reset()
-            e = 1.0 / ((i/50)+10)
+            e = 1.0 / ((i/1000)+1)
             rAll = 0
             done = False
             local_loss = []
-            step_count = 0
+
 
             while not done:
                 # Qs = sess.run( Qpred, feed_dict={X:one_hot(s, input_size)} )
@@ -381,6 +385,17 @@ def testRun():
                 if step_count % TARGET_UPDATE_FREQUENCY == 0:
                     sess.run(copy_ops)
 
+                if done:
+                    if reward == 1:
+                        print( 'Win', env.action_space.getDumped(), env.Opponent.dumped)
+                    elif reward == 0:
+                        print( 'Even', env.action_space.getDumped(), env.Opponent.dumped)
+
+                    else:
+                        print( 'Lost', env.action_space.getDumped(), env.Opponent.dumped)
+                    rList.append(reward)
+
+
                 # if done:
                 #     Qs[0, a] = reward
                 #     if reward > 0:
@@ -391,27 +406,20 @@ def testRun():
                 #
                 # sess.run( train, feed_dict={X: one_hot(s, input_size), Y:Qs} )
                 #
-                rAll += reward
+
                 s = s1
                 step_count += 1
 
-            last_100_game_reward.append(step_count)
-
-            if len(last_100_game_reward) == last_100_game_reward.maxlen:
-                avg_reward = np.mean(last_100_game_reward)
-
-                if avg_reward > 199:
-                    print(f"Game Cleared in {episode} episodes with avg reward {avg_reward}")
-                    break
-            rList.append( rAll )
 
         # print(W.eval(sess))
-
-    print( "P:"+str( sum(rList)/num_episodes))
-
-
     plt.bar( range(len(rList)), rList, color="blue")
     plt.show()
+
+    from itertools import groupby
+    rList.sort()
+    for key, group in groupby(rList):
+        print( key, ":", str( len(list(group))/len(rList)) )
+
 
 
 
