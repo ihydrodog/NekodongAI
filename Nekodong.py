@@ -41,13 +41,6 @@ class DQN:
             net = self._X
 
             net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
-            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
 
             net = tf.layers.dense(net, self.output_size)
             self._Qpred = net
@@ -147,6 +140,10 @@ class CardPlay( gym.Env ):
 
 
         def randomChoice(self):
+            return random.choice( self._deck )
+
+
+        def strategy1(self):
             return self._deck[0]
             # return random.choice( self._deck )
 
@@ -204,7 +201,7 @@ class CardPlay( gym.Env ):
             r = [ (rewards[i], i) for i in range( len( rewards ) ) ]
             r.sort()
 
-            # return r[ len(rewards) -1 ][1]
+            return r[ len(rewards) -1 ][1]
 
             for (_, i) in reversed( r ):
                 if self._player.contains( i ):
@@ -214,6 +211,7 @@ class CardPlay( gym.Env ):
                     pass
 
             return i
+
 
         def sample(self):
             return self._player.randomChoice()
@@ -272,7 +270,8 @@ class CardPlay( gym.Env ):
             self.action_space.step( action )
             done = self.action_space.isDone()
 
-            opponentCard = self._opponent.randomChoice()
+            opponentCard = self._opponent.strategy1()
+            # opponentCard = self._opponent.randomChoice()
             self._opponent.pop( opponentCard )
 
             mine = self.action_space.getDumped()
@@ -311,6 +310,14 @@ class CardPlay( gym.Env ):
         pass
 
 
+    def reset(self):
+        return self._reset()
+
+
+    def step(self, action ):
+        return self._step( action )
+
+
     def _reset(self):
         self.action_space.reset()
         self._opponent.reset()
@@ -340,7 +347,7 @@ def testRun():
     #
     # train = tf.train.GradientDescentOptimizer( learning_rate=0.1).minimize( loss )
     # discount = 0.99
-    num_episodes = 2000
+    num_episodes = 100000
     rList = []
 
     # env.render()
@@ -366,7 +373,7 @@ def testRun():
 
         for i in range( num_episodes ):
             s = env.reset()
-            e = 1.0 / ((i/10)+1)
+            e = 1.0 / ((i/1000)+1)
             rAll = 0
             done = False
             local_loss = []
