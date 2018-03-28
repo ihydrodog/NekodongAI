@@ -28,7 +28,7 @@ class DQN:
         self.output_size = output_size
         self.net_name = name
 
-        self._build_network( h_size=input_size*4)
+        self._build_network( h_size=input_size*2)
 
     def _build_network(self, h_size=16, l_rate=0.001) -> None:
         """DQN Network architecture (simple MLP)
@@ -40,6 +40,13 @@ class DQN:
             self._X = tf.placeholder(tf.float32, [None, self.input_size], name="input_x")
             net = self._X
 
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
+            net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
             net = tf.layers.dense(net, h_size, activation=tf.nn.relu)
 
             net = tf.layers.dense(net, self.output_size)
@@ -140,7 +147,8 @@ class CardPlay( gym.Env ):
 
 
         def randomChoice(self):
-            return random.choice( self._deck )
+            return self._deck[0]
+            # return random.choice( self._deck )
 
 
         def contains(self, x):
@@ -358,7 +366,7 @@ def testRun():
 
         for i in range( num_episodes ):
             s = env.reset()
-            e = 1.0 / ((i/1000)+1)
+            e = 1.0 / ((i/10)+1)
             rAll = 0
             done = False
             local_loss = []
@@ -389,7 +397,7 @@ def testRun():
                 if done:
                     if reward == 1:
                         print( 'Win', env.action_space.getDumped(), env.Opponent.dumped)
-                    elif reward == 0:
+                    elif reward == 0.5:
                         print( 'Even', env.action_space.getDumped(), env.Opponent.dumped)
 
                     else:
